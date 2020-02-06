@@ -16,6 +16,6 @@ public class busScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        rb.MovePosition(transform.position + transform.forward * Time.fixedDeltaTime);
+        rb.MovePosition(transform.position + -transform.forward * Time.fixedDeltaTime);
     }
 }

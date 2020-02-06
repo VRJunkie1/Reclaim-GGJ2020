@@ -2,42 +2,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CharacterControllerSettings
-{
-    public CharacterControllerSettings() { }
-    public CharacterControllerSettings(CharacterController controller) {
-        Center = controller.center;
-        Radius = controller.radius;
-        Height = controller.height;
-    }
-    public Vector3 Center;
-    public float Radius;
-    public float Height;
-    public void copyTo(CharacterController receivingController)
-    {
-        receivingController.center = Center;
-        receivingController.radius = Radius;
-        receivingController.height = Height;
-    }
-}
 
 [RequireComponent(typeof(Camera))]
-[RequireComponent(typeof(CharacterController))]
 //[RequireComponent(typeof(Animator))]
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(CapsuleCollider))]
 public class playerController : MonoBehaviour
 {
-    CharacterControllerSettings walkSettings;
-    CharacterControllerSettings swimSettings;
+    Rigidbody rigidbody;
+    CapsuleCollider capsulecCollider;
 
-    /// <summary>
-    /// Get saved and swapped in when the character is swimming
-    /// </summary>
-    public CharacterController swimControllerSettings;
-    CharacterController activeController;
+
     Animator animator;
-    //public Camera mainCamera;
     /// <summary>
-    /// Needs a camera, and the camera gameobject needs a character controller for swimming collisions
+    /// Needs a camera
     /// </summary>
     public Transform head;
     Camera headCamera;
@@ -53,7 +31,10 @@ public class playerController : MonoBehaviour
     /// <summary>
     /// for scaling the head to 0
     /// </summary>
-    public Transform neckbone; 
+    public Transform neckbone;
+
+    public float groundRayRadius = .5f;
+    public float groundRayLength = .1f;
 
     public float walkSpeed = 6.0f;
     public float jumpSpeed = 8.0f;
@@ -70,6 +51,7 @@ public class playerController : MonoBehaviour
     public float swimAccel = .5f;
 
     public bool isSwimming;
+    public bool isGrounded; // feet touching ground
     public bool wasSwimming { get; private set; }
 
     // mouse
@@ -86,14 +68,9 @@ public class playerController : MonoBehaviour
  
     void Start()
     {
-
-        activeController = GetComponent<CharacterController>();
-        walkSettings = new CharacterControllerSettings(activeController);
-        swimSettings = new CharacterControllerSettings(swimControllerSettings);
-
+        rigidbody = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
-        //camera = GetComponent<Camera>();
-        //headCollider = head.GetComponent<CapsuleCollider>();
+        capsulecCollider = GetComponent<CapsuleCollider>();
         foreach (Transform tf in head.transform)
         {
             if (tf.GetComponent<Camera>() != null) { headCamera = tf.GetComponent<Camera>(); }
@@ -115,19 +92,10 @@ public class playerController : MonoBehaviour
         if (other.gameObject.name.ToLower().Contains("watersurface")) underWaterSurface = true;
     }
 
-    //private void OnCollisionEnter(Collision collision)
-    //{
 
-    //}
     private void OnCollisionStay(Collision collision)
     {
-        print(collision.gameObject.name);
-    }
-
-    private void OnControllerColliderHit(ControllerColliderHit hit) // for pushing other objects while moving
-    {
-        print("hit " + hit.gameObject.name);
-        //moveOffset += hit.
+        //print(collision.gameObject.name);
     }
 
     private void FixedUpdate()
@@ -135,9 +103,20 @@ public class playerController : MonoBehaviour
         if (inAirZone && !underWaterSurface) isSwimming = false;
         else isSwimming = true;
 
-        const float MIN_X = 0.0f; float MAX_X = 360.0f; const float MIN_Y = -90.0f; const float MAX_Y = 90.0f;
+        rigidbody.angularVelocity = Vector3.zero;
 
-        //print(Input.GetAxis("Mouse X") + " X " + X);
+        RaycastHit hit;
+        isGrounded = Physics.SphereCast(transform.position, groundRayRadius, -(transform.up), out hit, groundRayLength);
+        if (isGrounded)
+        {
+            //transform.rotation = Quaternion.LookRotation(Vector3.Cross(transform.right, hit.normal)   // tilts character along ground
+            //print(hit.collider.gameObject.name + Vector3.Angle(hit.normal, new Vector3(0,1,0)));
+            // TODO: Stop character from walking up steep slopes
+        }
+
+
+        // Mouse
+        const float MIN_X = 0.0f; float MAX_X = 360.0f; const float MIN_Y = -90.0f; const float MAX_Y = 90.0f;
 
         X += Input.GetAxis("Mouse X") * (Sensitivity * Time.deltaTime);
         if (X < MIN_X) X += MAX_X;
@@ -148,9 +127,8 @@ public class playerController : MonoBehaviour
         if (Cursor.lockState != CursorLockMode.Locked) 
         { Y = 0; X = transform.rotation.eulerAngles.y; print("X " + X); }
         Cursor.lockState = CursorLockMode.Locked;
-
-
         //Cursor.visible;
+
 
         if (isSwimming)
         {
@@ -162,16 +140,11 @@ public class playerController : MonoBehaviour
             if (!wasSwimming)
             {
                 headCamera.transform.localPosition = CameraOffsetSwimming;
-                swimSettings.copyTo(activeController);
-
-                //moveOffset = oldCamPosition - headCamera.transform.position;
-                //print("Wasn't swimming. oldCamPosition " + oldCamPosition + " headCamera.transform.position " + headCamera.transform.position);
             }
         }
         else
         {
             Vector3 oldCamPosition = headCamera.transform.position;
-            //characterController.enabled = true;
 
             transform.rotation = Quaternion.Euler(0, X, 0.0f);
             head.transform.localRotation = Quaternion.Euler(Y, 0, 0);
@@ -179,23 +152,18 @@ public class playerController : MonoBehaviour
             if (wasSwimming)
             {
                 headCamera.transform.localPosition = cameraOffsetWalking;
-                walkSettings.copyTo(activeController);
-
-                //moveOffset = oldCamPosition - headCamera.transform.position;
-                //print("Was swimming. oldCamPosition " + oldCamPosition + " headCamera.transform.position " + headCamera.transform.position);
             }
         }
-        //moveDirection = new Vector3(Input.GetAxis("Horizontal"), 0.0f, Input.GetAxis("Vertical"));
-        //moveDirection *= speed;
+
         if (!isSwimming)
         {
-            if (activeController.isGrounded) moveDirection *= walkDrag;
+            if (isGrounded) moveDirection *= walkDrag;
             else moveDirection *= airDrag;
         }
         else moveDirection *= swimDrag;
 
         float accel = walkAccel;
-        if (!isSwimming) { if (!activeController.isGrounded) accel = airAccel; }
+        if (!isSwimming) { if (!isGrounded) accel = airAccel; }
         else accel = swimAccel;
 
         Vector3 targetVel;
@@ -211,23 +179,20 @@ public class playerController : MonoBehaviour
 
         targetVel = Vector3.Normalize(targetVel) * walkSpeed;
         moveDirection = moveDirection * (1- accel) + targetVel * accel;
-        //moveDirection *= speed;
-
-        //print("vel " + moveDirection);
-
-        //moveDirection = moveDirection * transform.rotation;
-        if(activeController.isGrounded) if (Input.GetButton("Jump")) moveDirection.y = jumpSpeed;
+        
+        if (isGrounded) if (Input.GetButton("Jump")) moveDirection.y = jumpSpeed;
 
         // Apply gravity. Gravity is multiplied by deltaTime twice (once here, and once below
         // when the moveDirection is multiplied by deltaTime). This is because gravity should be applied
         // as an acceleration (ms^-2)
         if (!isSwimming) moveDirection.y -= gravity * Time.fixedDeltaTime;
 
-        // Move the controller
-        activeController.Move(moveDirection * Time.deltaTime + moveOffset);
+        // Apply movement
+        rigidbody.velocity = moveDirection;
         moveOffset = Vector3.zero;
 
-        animator.SetFloat("speed", moveDirection.magnitude);
+        if (isSwimming) animator.SetFloat("speed", moveDirection.magnitude);
+        else animator.SetFloat("speed", moveDirection.xz().magnitude);
         animator.SetBool("IsSwimming", isSwimming);
 
         neckbone.localScale = Vector3.zero; // hide the head
