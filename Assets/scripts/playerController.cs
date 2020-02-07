@@ -79,6 +79,13 @@ public class playerController : MonoBehaviour
     bool inAirZone = false;
     bool underWaterSurface = false;
 
+    /// <summary>
+    /// Bus movement etc
+    /// </summary>
+    //public Vector3 platformVelocity;
+    Rigidbody platformRB;
+    //bool onPlatform;
+
     // For adding extra player movement. Note: this 'teleport' will half fail if stuff is in the way, it seems
     Vector3 moveOffset;
  
@@ -92,6 +99,7 @@ public class playerController : MonoBehaviour
         }
         cameraOffsetWalking = headCamera.transform.localPosition;
 
+
         Vector3 euler = transform.rotation.eulerAngles;
         X = euler.x;
         Y = euler.y;
@@ -100,10 +108,17 @@ public class playerController : MonoBehaviour
         waterDetector.onTriggerStay += waterStay;
     }
 
+
     public void waterStay(Collider other)
     {
         //print(other.gameObject.name);
-        if (other.gameObject.name.ToLower().Contains("busairzone")) inAirZone = true;
+        if (other.gameObject.name.ToLower().Contains("busairzone"))
+        {
+            inAirZone = true;
+            //platformVelocity = other.transform.root.GetComponent<Rigidbody>().velocity; // TODO: Store rigidbody ref
+            //print("in bus");
+            platformRB = other.transform.root.GetComponent<Rigidbody>();
+        }
         if (other.gameObject.name.ToLower().Contains("watersurface")) underWaterSurface = true;
     }
 
@@ -129,9 +144,10 @@ public class playerController : MonoBehaviour
         if (isSwimming) rigidbody.useGravity = false;
         else rigidbody.useGravity = true;
 
-
+        // get ground info
         RaycastHit hit;
-        isGrounded = Physics.SphereCast(transform.position, groundRayRadius, -(transform.up), out hit, groundRayLength, 1);
+        int layermask = 1 | 1 << 9;
+        isGrounded = Physics.SphereCast(transform.position, groundRayRadius, -(transform.up), out hit, groundRayLength, layermask);
         if (isGrounded)
         {
             //transform.rotation = Quaternion.LookRotation(Vector3.Cross(transform.right, hit.normal)   // tilts character along ground
@@ -187,22 +203,22 @@ public class playerController : MonoBehaviour
         if (!isSwimming) { accel = Mathf.Lerp(airAccel, walkAccel, isGroundedAmount); }
         else accel = swimAccel;
 
-        Vector3 targetVel;
+        Vector3 targetVel = Vector3.zero;
         if (!isSwimming)
         {
-            targetVel = (Input.GetAxisRaw("Horizontal") * transform.right + Input.GetAxisRaw("Vertical") * transform.forward);
+            targetVel += (Input.GetAxisRaw("Horizontal") * transform.right + Input.GetAxisRaw("Vertical") * transform.forward);
         }
         else
         {
-            targetVel = (Input.GetAxisRaw("Horizontal") * head.right + Input.GetAxisRaw("Vertical") * head.forward);
+            targetVel += (Input.GetAxisRaw("Horizontal") * head.right + Input.GetAxisRaw("Vertical") * head.forward);
             targetVel += Input.GetAxisRaw("UpDown") * new Vector3(0, 1, 0);
         }
 
         targetVel = Vector3.Normalize(targetVel) * walkSpeed;
         moveDirection = moveDirection * (1- accel) + targetVel * accel;
-        
 
 
+        //moveDirection += platformVelocity;
         // Apply movement
         if (isSwimming) rigidbody.velocity = moveDirection;
         else
@@ -213,9 +229,20 @@ public class playerController : MonoBehaviour
             if(isGrounded) vertical = -walkDownForce;
             if (Input.GetButton("Jump")) vertical = jumpSpeed * isGroundedAmount;
             rigidbody.velocity += new Vector3(0, vertical,0);
+
+            if (isGrounded)
+            {
+                if (platformRB != null)
+                {
+                    rigidbody.velocity += platformRB.velocity;
+                    // Todo: turn player slightly as the bus rotates
+                }
+            }
+            //else rigidbody.velocity += platformVelocity * .5f;
         }
         //rigidbody.AddForce(moveDirection * 5);
         moveOffset = Vector3.zero;
+        //print("rigidbody.velocity " + rigidbody.velocity);
 
         if (isSwimming) animator.SetFloat("speed", moveDirection.magnitude);
         else animator.SetFloat("speed", moveDirection.xz().magnitude);
@@ -228,7 +255,8 @@ public class playerController : MonoBehaviour
         underWaterSurface = false;
         wasSwimming = isSwimming;
 
-
+        //platformVelocity = Vector3.zero;
+        platformRB = null;
     }
 
     private void Update()
