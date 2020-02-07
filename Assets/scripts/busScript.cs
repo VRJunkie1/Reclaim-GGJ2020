@@ -9,11 +9,19 @@ public class busScript : MonoBehaviour
     /// The bus that interacts with the scene, but not the player
     /// </summary>
     public Transform physicalBus;
+    public triggerZone frontWheels;
+    public triggerZone backWheels;
+
     Rigidbody physicalRB;
     Rigidbody visualRB;
 
     public float forwardPower = 50000;
     public float rotationPower = 20000;
+    public float forwardTilt = 20;
+    public float uprightForce = 1000;
+    public float maxFloatFoce = 3000;
+
+    public float drivePower = 50000;
 
     // Start is called before the first frame update
     void Start()
@@ -22,6 +30,33 @@ public class busScript : MonoBehaviour
         physicalRB = physicalBus.GetComponent<Rigidbody>();
 
         physicalRB.centerOfMass = new Vector3(0, 1,0);
+
+        frontWheels.onTriggerStay += frontDrive;
+        backWheels.onTriggerStay += backDrive;
+    }
+
+    void frontDrive(Collider other)
+    {
+        //print("front");
+        if (Input.GetKey(KeyCode.H) || Input.GetKey(KeyCode.G))
+        {
+            Vector3 force;
+            //if (Input.GetKey(KeyCode.J)) physicalRB.AddForceAtPosition(physicalBus.right * drivePower, frontWheels.transform.position + frontWheels.transform.up*.3f);
+            //else if (Input.GetKey(KeyCode.L)) physicalRB.AddForceAtPosition(-physicalBus.right * drivePower, frontWheels.transform.position + frontWheels.transform.up*.3f);
+            //else physicalRB.AddRelativeForce(new Vector3(0, 0, -drivePower));
+            if (Input.GetKey(KeyCode.J)) force = physicalBus.right + -physicalBus.forward*.5f;
+            else if (Input.GetKey(KeyCode.L)) force = -physicalBus.right + -physicalBus.forward*.5f;
+            else force = -physicalBus.forward;
+            force = force.normalized * drivePower;
+            if (Input.GetKey(KeyCode.G)) force = -force;
+            physicalRB.AddForceAtPosition(force, frontWheels.transform.position + frontWheels.transform.up * .1f);
+        }
+    }
+    void backDrive(Collider other)
+    {
+        //print("back");
+        if (Input.GetKey(KeyCode.H)) physicalRB.AddRelativeForce(new Vector3(0, 0, -drivePower));
+        if (Input.GetKey(KeyCode.G)) physicalRB.AddRelativeForce(new Vector3(0, 0, drivePower));
     }
 
     private void FixedUpdate()
@@ -35,18 +70,18 @@ public class busScript : MonoBehaviour
         if (Input.GetKey(KeyCode.H)) physicalRB.AddRelativeForce(new Vector3(0, 0, -forwardPower));
         if (Input.GetKey(KeyCode.G)) physicalRB.AddRelativeForce(new Vector3(0, 0, forwardPower));
 
-        //Quaternion lean = Quaternion.identity * Quaternion.Inverse( physicalBus.rotation);
-        //physicalRB.AddRelativeTorque(lean.eulerAngles * 5000);
+        // Force it upright
+        Vector3 angles = physicalBus.localRotation.eulerAngles;
+        angles.x += forwardTilt;
+        angles.x = angles.x > 180 ? angles.x - 360 : angles.x;
+        angles.y = 0;//angles.y > 180 ? angles.y - 360 : angles.y;
+        angles.z = angles.z > 180 ? angles.z - 360 : angles.z;
+        physicalRB.AddRelativeTorque(-angles * uprightForce);
 
-        Quaternion rot1 = Quaternion.FromToRotation(physicalBus.up, -Vector3.up);
-        Vector3 rot = rot1.eulerAngles;
-        rot -= new Vector3(180, 180, 180);
-        //rot.Scale(rot);
-        //physicalRB.AddRelativeTorque(new Vector3(rot.x, 0, rot.z) * 100);
-        //print("rot " + rot);
+        //print(angles);
 
         //physicalRB.AddForceAtPosition(new Vector3(0, 1000,0), physicalBus.position + new Vector3(0, 10, 0));    // it just death spins
-        physicalRB.AddForce(new Vector3(0, 3000, 0));   // float force
+        //physicalRB.AddForce(new Vector3(0, maxFloatFoce, 0));   // float force
 
         visualRB.MovePosition(physicalBus.position);
         visualRB.MoveRotation(physicalBus.rotation);
