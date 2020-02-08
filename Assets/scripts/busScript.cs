@@ -41,14 +41,12 @@ public class busScript : MonoBehaviour
         if (Input.GetKey(KeyCode.H) || Input.GetKey(KeyCode.G))
         {
             Vector3 force;
-            //if (Input.GetKey(KeyCode.J)) physicalRB.AddForceAtPosition(physicalBus.right * drivePower, frontWheels.transform.position + frontWheels.transform.up*.3f);
-            //else if (Input.GetKey(KeyCode.L)) physicalRB.AddForceAtPosition(-physicalBus.right * drivePower, frontWheels.transform.position + frontWheels.transform.up*.3f);
-            //else physicalRB.AddRelativeForce(new Vector3(0, 0, -drivePower));
             if (Input.GetKey(KeyCode.J)) force = physicalBus.right + -physicalBus.forward*.5f;
             else if (Input.GetKey(KeyCode.L)) force = -physicalBus.right + -physicalBus.forward*.5f;
             else force = -physicalBus.forward;
             force = force.normalized * drivePower;
             if (Input.GetKey(KeyCode.G)) force = -force;
+            print("force " + force);
             physicalRB.AddForceAtPosition(force, frontWheels.transform.position + frontWheels.transform.up * .1f);
         }
     }
@@ -81,7 +79,7 @@ public class busScript : MonoBehaviour
         //print(angles);
 
         //physicalRB.AddForceAtPosition(new Vector3(0, 1000,0), physicalBus.position + new Vector3(0, 10, 0));    // it just death spins
-        //physicalRB.AddForce(new Vector3(0, maxFloatFoce, 0));   // float force
+        physicalRB.AddForce(new Vector3(0, maxFloatFoce, 0));   // float force
 
         visualRB.MovePosition(physicalBus.position);
         visualRB.MoveRotation(physicalBus.rotation);

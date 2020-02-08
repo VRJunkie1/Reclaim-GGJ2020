@@ -98,6 +98,7 @@ Shader "Custom/Emil InteriorMapping"
                     //kMin = k.y;   // only horizontal surface appears correctly, if this is set
                     //return float4(kMin, 0, 0, 1);
                     pos += kMin * i.viewDir;
+                    //return float4(pos, 1);
 
                     // depth
                     float3 flooredUV = floor(i.uvw);

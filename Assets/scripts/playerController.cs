@@ -99,7 +99,6 @@ public class playerController : MonoBehaviour
         }
         cameraOffsetWalking = headCamera.transform.localPosition;
 
-
         Vector3 euler = transform.rotation.eulerAngles;
         X = euler.x;
         Y = euler.y;
@@ -235,7 +234,12 @@ public class playerController : MonoBehaviour
                 if (platformRB != null)
                 {
                     rigidbody.velocity += platformRB.velocity;
+                    Vector3 rotOffset = RotatePointAroundPivot(transform.position, platformRB.centerOfMass + platformRB.position, platformRB.angularVelocity) - transform.position;
+                    //print("rotOffset " + rotOffset.ToString("F4"));
+                    rigidbody.velocity += rotOffset * 60;
                     // Todo: turn player slightly as the bus rotates
+                    //rigidbody.angularVelocity = platformRB.angularVelocity;
+                    X += platformRB.angularVelocity.y * 1.2f;
                 }
             }
             //else rigidbody.velocity += platformVelocity * .5f;
@@ -257,6 +261,23 @@ public class playerController : MonoBehaviour
 
         //platformVelocity = Vector3.zero;
         platformRB = null;
+    }
+
+    // TODO: Move player with bus rotation
+    // https://answers.unity.com/questions/532297/rotate-a-vector-around-a-certain-point.html
+    Vector3 RotatePointAroundPivot(Vector3 point, Vector3 pivot, Vector3 angles)
+    {
+        Vector3 dir = point - pivot; // get point direction relative to pivot
+        dir = Quaternion.Euler(angles) * dir; // rotate it
+        point = dir + pivot; // calculate rotated point
+        return point; // return it
+    }
+    Vector3 RotatePointAroundPivot(Vector3 point, Vector3 pivot, Quaternion rotation)
+    {
+        Vector3 dir = point - pivot; // get point direction relative to pivot
+        dir = rotation * dir; // rotate it
+        point = dir + pivot; // calculate rotated point
+        return point; // return it
     }
 
     private void Update()
